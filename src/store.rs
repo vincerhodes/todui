@@ -84,17 +84,16 @@ fn data_file_path() -> PathBuf {
 }
 
 #[cfg(test)]
+pub(crate) fn test_env_lock() -> &'static std::sync::Mutex<()> {
+    static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::model::Task;
     use chrono::{NaiveDate, Utc};
-    use std::sync::{Mutex, OnceLock};
-
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-    fn env_lock() -> &'static Mutex<()> {
-        ENV_LOCK.get_or_init(|| Mutex::new(()))
-    }
 
     struct EnvGuard {
         _lock: std::sync::MutexGuard<'static, ()>,
@@ -103,7 +102,7 @@ mod tests {
 
     impl EnvGuard {
         fn set_data_file(path: &Path) -> Self {
-            let lock = env_lock().lock().unwrap();
+            let lock = test_env_lock().lock().unwrap();
             let prev = std::env::var("TODUI_DATA_FILE").ok();
             std::env::set_var("TODUI_DATA_FILE", path);
             Self {
