@@ -93,3 +93,7 @@ Open when adding/editing or searching. Status hints are replaced by the input li
 | Printable characters | Insert (Ctrl/Alt combinations are ignored) |
 
 During search prompt, the list filters as you type; `Backspace` updates the filter immediately.
+
+## Development
+
+- Run tests: `cargo test` and lint: `cargo clippy -- -D warnings`.
