@@ -83,6 +83,7 @@ pub struct App {
     pub should_quit: bool,
     pub celebration: Option<Instant>,
     pub show_help: bool,
+    pub help_scroll: u16,
     undo: Vec<InverseOp>,
 }
 
@@ -102,6 +103,7 @@ impl App {
             should_quit: false,
             celebration: None,
             show_help: false,
+            help_scroll: 0,
             undo: Vec::new(),
         }
     }

@@ -48,7 +48,9 @@ fn run() -> io::Result<()> {
         if event::poll(Duration::from_millis(250))? {
             if let Event::Key(key) = event::read()? {
                 if let Some(action) = input::map_key(key, &app) {
-                    apply_action(&mut app, action);
+                    let size = terminal.size()?;
+                    let full = ratatui::layout::Rect::new(0, 0, size.width, size.height);
+                    apply_action(&mut app, action, full);
                 }
             }
         }
@@ -64,7 +66,7 @@ fn run() -> io::Result<()> {
     result
 }
 
-fn apply_action(app: &mut App, action: Action) {
+fn apply_action(app: &mut App, action: Action, terminal_area: ratatui::layout::Rect) {
     match action {
         Action::MoveUp => app.move_up(),
         Action::MoveDown => app.move_down(),
@@ -101,8 +103,17 @@ fn apply_action(app: &mut App, action: Action) {
         Action::Undo => app.undo(),
         Action::ClearSearch => app.search.clear(),
         Action::ClearStatus => app.clear_status(),
-        Action::ToggleHelp => app.show_help = true,
+        Action::ToggleHelp => {
+            app.show_help = true;
+            app.help_scroll = 0;
+        }
         Action::CloseHelp => app.show_help = false,
+        Action::ScrollHelp(delta) => {
+            let main = ui::main_content_rect(terminal_area, app.input.is_some());
+            let max = ui::help_max_scroll(main);
+            let next = i32::from(app.help_scroll) + i32::from(delta);
+            app.help_scroll = next.clamp(0, i32::from(max)) as u16;
+        }
         Action::StartPrompt(prompt) => {
             app.input_buffer = prompt_initial_buffer(app, &prompt);
             app.input = Some(prompt);

@@ -20,6 +20,7 @@ pub enum Action {
     ClearStatus,
     ToggleHelp,
     CloseHelp,
+    ScrollHelp(i16),
     StartPrompt(InputPrompt),
     CommitPrompt(InputPrompt),
     CancelPrompt,
@@ -40,6 +41,10 @@ pub fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
 fn map_help_key(key: KeyEvent) -> Option<Action> {
     match key.code {
         KeyCode::Char('?') | KeyCode::Esc | KeyCode::Char('q') => Some(Action::CloseHelp),
+        KeyCode::Up => Some(Action::ScrollHelp(-1)),
+        KeyCode::Down => Some(Action::ScrollHelp(1)),
+        KeyCode::PageUp => Some(Action::ScrollHelp(-10)),
+        KeyCode::PageDown => Some(Action::ScrollHelp(10)),
         _ => None,
     }
 }
