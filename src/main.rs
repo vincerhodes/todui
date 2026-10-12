@@ -11,6 +11,7 @@ use std::time::Duration;
 use app::{App, Focus, InputPrompt};
 use crossterm::event::{self, Event};
 use crossterm::execute;
+use crossterm::style::Print;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
@@ -40,6 +41,7 @@ fn run() -> io::Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     let result = loop {
+        clear_stale_celebration(&mut app);
         terminal.draw(|frame| ui::render(frame, &app))?;
 
         if event::poll(Duration::from_millis(250))? {
@@ -69,7 +71,25 @@ fn apply_action(app: &mut App, action: Action) {
         Action::PrevFocus => app.prev_focus(),
         Action::Activate => match app.focus {
             Focus::Sidebar => app.select_sidebar(),
-            Focus::TaskList => app.toggle_complete(),
+            Focus::TaskList => {
+                let id = app.selected_task().map(|t| t.id);
+                let was_open = app
+                    .selected_task()
+                    .is_some_and(|t| t.completed.is_none());
+                app.toggle_complete();
+                if was_open
+                    && id.is_some_and(|id| {
+                        app.store_file
+                            .store
+                            .tasks
+                            .iter()
+                            .find(|t| t.id == id)
+                            .is_some_and(|t| t.completed.is_some())
+                    })
+                {
+                    play_completion_sound();
+                }
+            }
         },
         Action::Quit => app.should_quit = true,
         Action::DeleteSelected => app.delete_selected(),
@@ -91,6 +111,7 @@ fn apply_action(app: &mut App, action: Action) {
                 InputPrompt::EditDue(_) => app.set_due_selected(&buffer),
                 InputPrompt::EditProject(_) => app.set_project_selected(&buffer),
                 InputPrompt::EditContexts(_) => app.set_contexts_selected(&buffer),
+                InputPrompt::EditNotes(_) => app.set_notes_selected(buffer),
                 InputPrompt::Search => app.search = buffer,
             }
             app.input = None;
@@ -121,7 +142,7 @@ fn prompt_initial_buffer(app: &App, prompt: &InputPrompt) -> String {
         InputPrompt::AddTitle => String::new(),
         InputPrompt::Search => app.search.clone(),
         InputPrompt::EditTitle(_) | InputPrompt::EditDue(_) | InputPrompt::EditProject(_)
-        | InputPrompt::EditContexts(_) => {
+        | InputPrompt::EditContexts(_) | InputPrompt::EditNotes(_) => {
             let Some(task) = app.selected_task() else {
                 return String::new();
             };
@@ -138,10 +159,36 @@ fn prompt_initial_buffer(app: &App, prompt: &InputPrompt) -> String {
                     .map(|c| format!("@{c}"))
                     .collect::<Vec<_>>()
                     .join(" "),
+                InputPrompt::EditNotes(_) => task.notes.clone().unwrap_or_default(),
                 _ => String::new(),
             }
         }
     }
+}
+
+fn clear_stale_celebration(app: &mut App) {
+    if app.celebration.is_some() && !app.celebration_active() {
+        app.celebration = None;
+    }
+}
+
+fn play_completion_sound() {
+    const PATHS: &[&str] = &[
+        "/usr/share/sounds/freedesktop/stereo/complete.oga",
+        "/usr/share/sounds/freedesktop/stereo/bell.oga",
+    ];
+    for path in PATHS {
+        if std::path::Path::new(path).exists() {
+            let _ = std::process::Command::new("paplay")
+                .arg(path)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn();
+            return;
+        }
+    }
+    let _ = execute!(stdout(), Print("\x07"));
 }
 
 fn install_panic_hook() {

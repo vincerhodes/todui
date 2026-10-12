@@ -60,6 +60,9 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('c') => selected_id(app).map(|id| {
             Action::StartPrompt(InputPrompt::EditContexts(id))
         }),
+        KeyCode::Char('N') => selected_id(app).map(|id| {
+            Action::StartPrompt(InputPrompt::EditNotes(id))
+        }),
         KeyCode::Char('t') => selected_id(app).map(|id| {
             Action::StartPrompt(InputPrompt::EditDue(id))
         }),

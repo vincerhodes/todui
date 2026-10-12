@@ -67,6 +67,7 @@ Focus is either the **sidebar** (views) or the **task list**. Use `Tab` / `Shift
 | `t` | Edit due date (`YYYY-MM-DD`; empty clears due) |
 | `o` | Edit project (empty = inbox) |
 | `c` | Edit contexts (space-separated, e.g. `@home @desk`) |
+| `N` | Edit notes of selected task (Shift+N) |
 | `d` | Delete selected task |
 | `n` | Toggle next-action flag |
 | `p` | Cycle priority: none → high → medium → low → none |
@@ -77,7 +78,7 @@ Focus is either the **sidebar** (views) or the **task list**. Use `Tab` / `Shift
 | `q` | Quit |
 | `Esc` | Clear active search filter (when search text is set and no prompt is open) |
 
-Keys `e`, `t`, `o`, and `c` apply only when a task is selected in the list.
+Keys `e`, `t`, `o`, `c`, and `N` apply only when a task is selected in the list.
 
 Completed tasks stay in the current view but sort to the bottom. Overdue dues show in red; due today in yellow. Recurring tasks show `↻`.
 

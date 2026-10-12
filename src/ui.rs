@@ -36,6 +36,10 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_sidebar(frame, app, h_chunks[0]);
     render_task_list(frame, app, h_chunks[1]);
 
+    if app.celebration_active() {
+        render_celebration_overlay(frame, main_area);
+    }
+
     if let (Some(prompt), Some(input_rect)) = (&app.input, input_area) {
         let (label, buf) = prompt.label_and_buffer(&app.input_buffer);
         let line = Line::from(vec![
@@ -131,7 +135,15 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
     let list_focus = app.focus == Focus::TaskList;
     let title = list_block_title(&app.sidebar_sel, &app.search);
 
-    let block = Block::default().borders(Borders::ALL).title(title);
+    let border_style = if app.celebration_active() {
+        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+    };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(border_style);
 
     if tasks.is_empty() {
         frame.render_widget(
@@ -260,6 +272,34 @@ fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(
         Paragraph::new(Line::from(right_spans)).alignment(Alignment::Right),
         chunks[1],
+    );
+}
+
+fn render_celebration_overlay(frame: &mut Frame, area: Rect) {
+    let popup_w = 18u16.min(area.width);
+    let popup_h = 3u16.min(area.height);
+    let x = area.x + area.width.saturating_sub(popup_w) / 2;
+    let y = area.y + area.height.saturating_sub(popup_h) / 2;
+    let popup = Rect {
+        x,
+        y,
+        width: popup_w,
+        height: popup_h,
+    };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )
+        .style(Style::default().bg(Color::Black));
+    frame.render_widget(
+        Paragraph::new("🎉 Done!")
+            .block(block)
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        popup,
     );
 }
 

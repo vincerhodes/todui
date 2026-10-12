@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, Utc};
 use std::cmp::Ordering;
+use std::time::Instant;
 
 use crate::model::{Priority, Recurrence, Task};
 use crate::store::StoreFile;
@@ -33,6 +34,7 @@ pub enum InputPrompt {
     EditDue(u64),
     EditProject(u64),
     EditContexts(u64),
+    EditNotes(u64),
     Search,
 }
 
@@ -44,6 +46,7 @@ impl InputPrompt {
             InputPrompt::EditDue(_) => ("Due (YYYY-MM-DD): ", buffer),
             InputPrompt::EditProject(_) => ("Project (empty = inbox): ", buffer),
             InputPrompt::EditContexts(_) => ("Contexts (space-separated): ", buffer),
+            InputPrompt::EditNotes(_) => ("Notes: ", buffer),
             InputPrompt::Search => ("Search: ", buffer),
         }
     }
@@ -73,6 +76,7 @@ pub struct App {
     pub input_buffer: String,
     pub status: String,
     pub should_quit: bool,
+    pub celebration: Option<Instant>,
     undo: Vec<InverseOp>,
 }
 
@@ -90,6 +94,7 @@ impl App {
             input_buffer: String::new(),
             status: String::new(),
             should_quit: false,
+            celebration: None,
             undo: Vec::new(),
         }
     }
@@ -223,6 +228,7 @@ impl App {
                 self.store_file.store.tasks.push(spawned);
                 spawned_id = Some(new_id);
             }
+            self.celebration = Some(Instant::now());
             self.push_undo(InverseOp::Uncomplete {
                 id: before.id,
                 spawned_id,
@@ -358,6 +364,29 @@ impl App {
             .collect();
         self.push_undo(InverseOp::RestoreEdited(before));
         self.autosave();
+    }
+
+    pub fn set_notes_selected(&mut self, text: String) {
+        let Some(id) = self.selected_task().map(|t| t.id) else {
+            return;
+        };
+        let Some(task) = self.store_file.store.tasks.iter_mut().find(|t| t.id == id) else {
+            return;
+        };
+        let before = task.clone();
+        task.notes = if text.is_empty() {
+            None
+        } else {
+            Some(text)
+        };
+        self.push_undo(InverseOp::RestoreEdited(before));
+        self.autosave();
+    }
+
+    pub fn celebration_active(&self) -> bool {
+        const CELEBRATION_MS: u128 = 600;
+        self.celebration
+            .is_some_and(|start| start.elapsed().as_millis() <= CELEBRATION_MS)
     }
 
     pub fn undo(&mut self) {
@@ -630,6 +659,40 @@ mod tests {
         assert!(task.contexts.is_empty());
         app.set_project_selected("   ");
         assert_eq!(app.store_file.store.tasks[0].project, None);
+    }
+
+    #[test]
+    fn set_notes_and_undo() {
+        let mut app = app_with_tasks(vec![sample_task(1, "T")]);
+        app.list_index = 0;
+        app.set_notes_selected("Line one".to_string());
+        assert_eq!(
+            app.store_file.store.tasks[0].notes.as_deref(),
+            Some("Line one")
+        );
+        app.set_notes_selected(String::new());
+        assert!(app.store_file.store.tasks[0].notes.is_none());
+        app.undo();
+        assert_eq!(
+            app.store_file.store.tasks[0].notes.as_deref(),
+            Some("Line one")
+        );
+        app.undo();
+        assert!(app.store_file.store.tasks[0].notes.is_none());
+    }
+
+    #[test]
+    fn celebration_on_complete_not_on_uncomplete() {
+        let mut app = app_with_tasks(vec![sample_task(1, "T")]);
+        app.list_index = 0;
+        assert!(app.celebration.is_none());
+        app.toggle_complete();
+        assert!(app.celebration.is_some());
+        assert!(app.store_file.store.tasks[0].completed.is_some());
+        let celebrated_at = app.celebration;
+        app.toggle_complete();
+        assert!(app.store_file.store.tasks[0].completed.is_none());
+        assert_eq!(app.celebration, celebrated_at);
     }
 
     #[test]
