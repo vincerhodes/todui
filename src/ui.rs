@@ -289,8 +289,78 @@ fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_help_overlay(frame: &mut Frame, area: Rect) {
-    let popup_w = 52u16.min(area.width);
-    let popup_h = 16u16.min(area.height);
+    let dim = Style::default().add_modifier(Modifier::DIM);
+    let head = Style::default().add_modifier(Modifier::BOLD);
+    let key = Style::default().fg(Color::Cyan);
+
+    let mut lines: Vec<Line> = Vec::new();
+    let section = |lines: &mut Vec<Line>, title: &str| {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(title.to_string(), head)));
+    };
+    let entry = |lines: &mut Vec<Line>, k: &str, desc: &str| {
+        lines.push(Line::from(vec![
+            Span::styled(format!("  {k:<16}"), key),
+            Span::raw(desc.to_string()),
+        ]));
+    };
+
+    lines.push(Line::from(Span::styled("todui — local GTD todo", head)));
+    lines.push(Line::from(Span::styled(
+        "Tasks live in Inbox until given a project. Contexts are",
+        dim,
+    )));
+    lines.push(Line::from(Span::styled(
+        "@tags for filtering. Completing a recurring task spawns",
+        dim,
+    )));
+    lines.push(Line::from(Span::styled(
+        "the next occurrence. All changes autosave to",
+        dim,
+    )));
+    lines.push(Line::from(Span::styled(
+        "~/.local/share/todui/todos.json and are undoable.",
+        dim,
+    )));
+
+    section(&mut lines, "Navigation");
+    entry(&mut lines, "↑ / ↓", "move within pane");
+    entry(&mut lines, "Tab / Shift+Tab", "switch sidebar ↔ task list");
+    entry(&mut lines, "Enter", "complete task / apply sidebar filter");
+    section(&mut lines, "Editing");
+    entry(&mut lines, "a", "add task to current view");
+    entry(&mut lines, "e", "edit title");
+    entry(&mut lines, "N", "edit notes");
+    entry(&mut lines, "o", "set project (empty = back to Inbox)");
+    entry(&mut lines, "c", "set contexts (space-separated @tags)");
+    entry(&mut lines, "t", "set due date YYYY-MM-DD (empty clears)");
+    entry(&mut lines, "d", "delete task");
+    section(&mut lines, "Task state");
+    entry(&mut lines, "n", "toggle next-action flag");
+    entry(&mut lines, "p", "cycle priority: none → high → med → low");
+    entry(&mut lines, "r", "cycle recurrence: daily → weekly → monthly");
+    section(&mut lines, "Find");
+    entry(&mut lines, "/", "search (filters live as you type)");
+    entry(&mut lines, "s", "cycle sort: due → priority → created → title");
+    entry(&mut lines, "u", "undo last change");
+    section(&mut lines, "General");
+    entry(&mut lines, "?", "toggle this help");
+    entry(&mut lines, "q", "quit");
+    entry(&mut lines, "Esc", "cancel prompt / clear search / dismiss message");
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "Prompts: Enter commits · Esc cancels".to_string(),
+        dim,
+    )));
+    lines.push(Line::from(Span::styled(
+        "Close help: ? · Esc · q".to_string(),
+        dim,
+    )));
+
+    let popup_w = 64u16.min(area.width.saturating_sub(2)).max(30);
+    let popup_h = (lines.len() as u16 + 2)
+        .min(area.height.saturating_sub(2))
+        .max(10);
     let x = area.x + area.width.saturating_sub(popup_w) / 2;
     let y = area.y + area.height.saturating_sub(popup_h) / 2;
     let popup = Rect {
@@ -299,34 +369,12 @@ fn render_help_overlay(frame: &mut Frame, area: Rect) {
         width: popup_w,
         height: popup_h,
     };
-    let dim = Style::default().add_modifier(Modifier::DIM);
-    let head = Style::default().add_modifier(Modifier::BOLD);
-    let lines = vec![
-        Line::from(Span::styled("Help", head)),
-        Line::from(""),
-        Line::from(Span::styled("Navigation", head)),
-        Line::from("  ↑/↓ move   Tab/Shift+Tab focus   Enter select/complete"),
-        Line::from(""),
-        Line::from(Span::styled("Editing", head)),
-        Line::from("  a add   e title   N notes   o project   c contexts   t due   d delete"),
-        Line::from(""),
-        Line::from(Span::styled("Task ops", head)),
-        Line::from("  n next-action   p priority   r recurrence   Enter toggle complete"),
-        Line::from(""),
-        Line::from(Span::styled("Find", head)),
-        Line::from("  / search   s sort   u undo"),
-        Line::from(""),
-        Line::from(Span::styled("General", head)),
-        Line::from("  ? help   q quit   Esc clear search/status"),
-        Line::from(""),
-        Line::from(Span::styled("Prompts: Enter commits · Esc cancels", dim)),
-        Line::from(Span::styled("Close help: ? · Esc · q", dim)),
-    ];
     let block = Block::default()
         .borders(Borders::ALL)
-        .title("Shortcuts")
+        .title(" Help ")
         .border_style(Style::default().fg(Color::Cyan))
         .style(Style::default().bg(Color::Black));
+    frame.render_widget(ratatui::widgets::Clear, popup);
     frame.render_widget(Paragraph::new(lines).block(block), popup);
 }
 
