@@ -32,7 +32,7 @@ fn run() -> io::Result<()> {
     let store_file = StoreFile::load()?;
     let mut app = App::new(store_file);
     if app.store_file.recovered {
-        app.status = "Store was corrupt; backed up to .bak — starting fresh".to_string();
+        app.set_status("Store was corrupt; backed up to .bak — starting fresh".to_string());
     }
 
     install_panic_hook();
@@ -42,6 +42,7 @@ fn run() -> io::Result<()> {
 
     let result = loop {
         clear_stale_celebration(&mut app);
+        app.expire_stale_status();
         terminal.draw(|frame| ui::render(frame, &app))?;
 
         if event::poll(Duration::from_millis(250))? {
@@ -99,6 +100,9 @@ fn apply_action(app: &mut App, action: Action) {
         Action::CycleSort => app.cycle_sort(),
         Action::Undo => app.undo(),
         Action::ClearSearch => app.search.clear(),
+        Action::ClearStatus => app.clear_status(),
+        Action::ToggleHelp => app.show_help = true,
+        Action::CloseHelp => app.show_help = false,
         Action::StartPrompt(prompt) => {
             app.input_buffer = prompt_initial_buffer(app, &prompt);
             app.input = Some(prompt);

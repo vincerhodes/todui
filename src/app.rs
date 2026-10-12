@@ -63,6 +63,11 @@ enum InverseOp {
 }
 
 const UNDO_CAP: usize = 100;
+pub const STATUS_MESSAGE_MS: u128 = 5000;
+
+pub fn status_message_live(elapsed_ms: u128) -> bool {
+    elapsed_ms <= STATUS_MESSAGE_MS
+}
 
 pub struct App {
     pub store_file: StoreFile,
@@ -74,9 +79,10 @@ pub struct App {
     pub search: String,
     pub input: Option<InputPrompt>,
     pub input_buffer: String,
-    pub status: String,
+    status: Option<(Instant, String)>,
     pub should_quit: bool,
     pub celebration: Option<Instant>,
+    pub show_help: bool,
     undo: Vec<InverseOp>,
 }
 
@@ -92,10 +98,39 @@ impl App {
             search: String::new(),
             input: None,
             input_buffer: String::new(),
-            status: String::new(),
+            status: None,
             should_quit: false,
             celebration: None,
+            show_help: false,
             undo: Vec::new(),
+        }
+    }
+
+    pub fn set_status(&mut self, message: String) {
+        self.status = Some((Instant::now(), message));
+    }
+
+    pub fn clear_status(&mut self) {
+        self.status = None;
+    }
+
+    pub fn status_active(&self) -> bool {
+        self.status
+            .as_ref()
+            .is_some_and(|(since, _)| status_message_live(since.elapsed().as_millis()))
+    }
+
+    pub fn status_message(&self) -> Option<&str> {
+        if self.status_active() {
+            self.status.as_ref().map(|(_, msg)| msg.as_str())
+        } else {
+            None
+        }
+    }
+
+    pub fn expire_stale_status(&mut self) {
+        if self.status.is_some() && !self.status_active() {
+            self.status = None;
         }
     }
 
@@ -305,7 +340,7 @@ impl App {
             match NaiveDate::parse_from_str(text, "%Y-%m-%d") {
                 Ok(d) => Some(d),
                 Err(_) => {
-                    self.status = format!("Invalid date '{text}', use YYYY-MM-DD");
+                    self.set_status(format!("Invalid date '{text}', use YYYY-MM-DD"));
                     return;
                 }
             }
@@ -391,7 +426,7 @@ impl App {
 
     pub fn undo(&mut self) {
         let Some(op) = self.undo.pop() else {
-            self.status = "Nothing to undo".to_string();
+            self.set_status("Nothing to undo".to_string());
             return;
         };
         match op {
@@ -571,7 +606,7 @@ impl App {
 
     fn autosave(&mut self) {
         if let Err(e) = self.store_file.save() {
-            self.status = e.to_string();
+            self.set_status(e.to_string());
         }
     }
 
@@ -757,7 +792,10 @@ mod tests {
         app.set_due_selected("");
         assert!(app.selected_task().unwrap().due.is_none());
         app.set_due_selected("not-a-date");
-        assert!(app.status.contains("Invalid date"));
+        assert!(
+            app.status_message()
+                .is_some_and(|s| s.contains("Invalid date"))
+        );
         assert!(app.selected_task().unwrap().due.is_none());
     }
 
@@ -890,5 +928,22 @@ mod tests {
             .map(|t| t.title.as_str())
             .collect();
         assert_eq!(order, vec!["Open", "Done"]);
+    }
+
+    #[test]
+    fn status_message_live_boundary() {
+        assert!(status_message_live(0));
+        assert!(status_message_live(STATUS_MESSAGE_MS));
+        assert!(!status_message_live(STATUS_MESSAGE_MS + 1));
+    }
+
+    #[test]
+    fn set_status_and_clear() {
+        let mut app = app_with_tasks(vec![]);
+        assert!(app.status_message().is_none());
+        app.set_status("hello".to_string());
+        assert_eq!(app.status_message(), Some("hello"));
+        app.clear_status();
+        assert!(app.status_message().is_none());
     }
 }

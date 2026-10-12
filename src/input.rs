@@ -17,6 +17,9 @@ pub enum Action {
     CycleSort,
     Undo,
     ClearSearch,
+    ClearStatus,
+    ToggleHelp,
+    CloseHelp,
     StartPrompt(InputPrompt),
     CommitPrompt(InputPrompt),
     CancelPrompt,
@@ -25,10 +28,20 @@ pub enum Action {
 }
 
 pub fn map_key(key: KeyEvent, app: &App) -> Option<Action> {
+    if app.show_help {
+        return map_help_key(key);
+    }
     if let Some(prompt) = app.input.clone() {
         return map_prompt_key(key, prompt);
     }
     map_normal_key(key, app)
+}
+
+fn map_help_key(key: KeyEvent) -> Option<Action> {
+    match key.code {
+        KeyCode::Char('?') | KeyCode::Esc | KeyCode::Char('q') => Some(Action::CloseHelp),
+        _ => None,
+    }
 }
 
 fn map_prompt_key(key: KeyEvent, prompt: InputPrompt) -> Option<Action> {
@@ -74,7 +87,9 @@ fn map_normal_key(key: KeyEvent, app: &App) -> Option<Action> {
         KeyCode::Char('s') => Some(Action::CycleSort),
         KeyCode::Char('u') => Some(Action::Undo),
         KeyCode::Char('q') => Some(Action::Quit),
+        KeyCode::Char('?') => Some(Action::ToggleHelp),
         KeyCode::Esc if !app.search.is_empty() => Some(Action::ClearSearch),
+        KeyCode::Esc => Some(Action::ClearStatus),
         _ => None,
     }
 }

@@ -14,7 +14,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     if has_input {
         v_constraints.push(Constraint::Length(1));
     }
-    v_constraints.push(Constraint::Length(1));
+    v_constraints.push(Constraint::Length(2));
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(v_constraints)
@@ -38,6 +38,10 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     if app.celebration_active() {
         render_celebration_overlay(frame, main_area);
+    }
+
+    if app.show_help {
+        render_help_overlay(frame, main_area);
     }
 
     if let (Some(prompt), Some(input_rect)) = (&app.input, input_area) {
@@ -240,22 +244,26 @@ fn task_line(task: &Task, today: chrono::NaiveDate) -> Line<'static> {
     Line::from(spans)
 }
 
+const STATUS_HINTS: &str =
+    "a add  e title  N notes  o proj  c ctx  t due  d del  n next  p pri  r recur  / search  s sort  u undo  ? help  q quit";
+
 fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(1), Constraint::Min(10)])
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Length(1)])
         .split(area);
 
-    let left = if app.status.is_empty() {
-        "a add · e edit · d del · Enter done · / search · s sort · u undo · q quit"
-    } else {
-        app.status.as_str()
-    };
+    let top = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(1), Constraint::Min(10)])
+        .split(rows[0]);
 
-    frame.render_widget(
-        Paragraph::new(left).style(Style::default().add_modifier(Modifier::DIM)),
-        chunks[0],
-    );
+    if let Some(message) = app.status_message() {
+        frame.render_widget(
+            Paragraph::new(message).style(Style::default().add_modifier(Modifier::DIM)),
+            top[0],
+        );
+    }
 
     let mut right_spans = vec![Span::styled(
         sort_label(app.sort),
@@ -271,8 +279,55 @@ fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
 
     frame.render_widget(
         Paragraph::new(Line::from(right_spans)).alignment(Alignment::Right),
-        chunks[1],
+        top[1],
     );
+
+    frame.render_widget(
+        Paragraph::new(STATUS_HINTS).style(Style::default().add_modifier(Modifier::DIM)),
+        rows[1],
+    );
+}
+
+fn render_help_overlay(frame: &mut Frame, area: Rect) {
+    let popup_w = 52u16.min(area.width);
+    let popup_h = 16u16.min(area.height);
+    let x = area.x + area.width.saturating_sub(popup_w) / 2;
+    let y = area.y + area.height.saturating_sub(popup_h) / 2;
+    let popup = Rect {
+        x,
+        y,
+        width: popup_w,
+        height: popup_h,
+    };
+    let dim = Style::default().add_modifier(Modifier::DIM);
+    let head = Style::default().add_modifier(Modifier::BOLD);
+    let lines = vec![
+        Line::from(Span::styled("Help", head)),
+        Line::from(""),
+        Line::from(Span::styled("Navigation", head)),
+        Line::from("  ↑/↓ move   Tab/Shift+Tab focus   Enter select/complete"),
+        Line::from(""),
+        Line::from(Span::styled("Editing", head)),
+        Line::from("  a add   e title   N notes   o project   c contexts   t due   d delete"),
+        Line::from(""),
+        Line::from(Span::styled("Task ops", head)),
+        Line::from("  n next-action   p priority   r recurrence   Enter toggle complete"),
+        Line::from(""),
+        Line::from(Span::styled("Find", head)),
+        Line::from("  / search   s sort   u undo"),
+        Line::from(""),
+        Line::from(Span::styled("General", head)),
+        Line::from("  ? help   q quit   Esc clear search/status"),
+        Line::from(""),
+        Line::from(Span::styled("Prompts: Enter commits · Esc cancels", dim)),
+        Line::from(Span::styled("Close help: ? · Esc · q", dim)),
+    ];
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Shortcuts")
+        .border_style(Style::default().fg(Color::Cyan))
+        .style(Style::default().bg(Color::Black));
+    frame.render_widget(Paragraph::new(lines).block(block), popup);
 }
 
 fn render_celebration_overlay(frame: &mut Frame, area: Rect) {

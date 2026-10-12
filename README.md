@@ -75,8 +75,9 @@ Focus is either the **sidebar** (views) or the **task list**. Use `Tab` / `Shift
 | `/` | Search (filters current view; live update while typing) |
 | `s` | Cycle sort: due → priority → created → title |
 | `u` | Undo last change |
-| `q` | Quit |
-| `Esc` | Clear active search filter (when search text is set and no prompt is open) |
+| `?` | Toggle keyboard shortcuts help overlay |
+| `q` | Quit (when help is open, closes help instead) |
+| `Esc` | Clear active search filter (when search text is set); otherwise clear status message |
 
 Keys `e`, `t`, `o`, `c`, and `N` apply only when a task is selected in the list.
 
